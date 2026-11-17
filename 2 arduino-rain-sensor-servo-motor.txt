@@ -1,0 +1,109 @@
+
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <ESP32Servo.h>
+
+// XIAO ESP32-C6 pins
+#define RAIN_SENSOR_PIN D2
+#define SERVO_PIN       D6
+#define LED_PIN         D7
+
+#define SDA_PIN         D4
+#define SCL_PIN         D5
+
+// LCD address: try 0x3F if 0x27 does not work
+LiquidCrystal_I2C lcd(0x27, 16, 4);
+Servo rainServo;
+
+// Rain sensor state
+int rainState = HIGH;
+
+// Servo angles
+const int DRY_ANGLE = 0;
+const int RAIN_ANGLE = 90;
+
+// LED blink timing
+unsigned long previousMillis = 0;
+const unsigned long blinkInterval = 300;
+bool ledState = LOW;
+
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(RAIN_SENSOR_PIN, INPUT);
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW);
+
+  // Initialize I2C LCD
+  Wire.begin(SDA_PIN, SCL_PIN);
+  lcd.init();
+  lcd.backlight();
+
+  // Initialize servo
+  rainServo.setPeriodHertz(50);
+  rainServo.attach(SERVO_PIN, 500, 2400);
+  rainServo.write(DRY_ANGLE);
+
+  lcd.setCursor(0, 0);
+  lcd.print("KVYA Rain System");
+  lcd.setCursor(0, 1);
+  lcd.print("Initializing...");
+  delay(1500);
+
+  rainState = digitalRead(RAIN_SENSOR_PIN);
+  updateRainDisplay(rainState);
+
+  Serial.println("Rain monitoring started");
+}
+
+void loop() {
+  rainState = digitalRead(RAIN_SENSOR_PIN);
+
+  if (rainState == LOW) {
+    // Most digital rain modules output LOW when wet
+    rainServo.write(RAIN_ANGLE);
+
+    // Blink LED while rain is detected
+    unsigned long currentMillis = millis();
+
+    if (currentMillis - previousMillis >= blinkInterval) {
+      previousMillis = currentMillis;
+      ledState = !ledState;
+      digitalWrite(LED_PIN, ledState);
+    }
+  } else {
+    // Dry condition
+    rainServo.write(DRY_ANGLE);
+    digitalWrite(LED_PIN, LOW);
+    ledState = LOW;
+  }
+
+  updateRainDisplay(rainState);
+
+  delay(100);
+}
+
+void updateRainDisplay(int state) {
+  lcd.setCursor(0, 0);
+  lcd.print("KVYA Rain System");
+
+  if (state == LOW) {
+    lcd.setCursor(0, 1);
+    lcd.print("Status: RAIN     ");
+
+    lcd.setCursor(0, 2);
+    lcd.print("Servo: 90 deg    ");
+
+    lcd.setCursor(0, 3);
+    lcd.print("LED: BLINKING    ");
+  } else {
+    lcd.setCursor(0, 1);
+    lcd.print("Status: DRY      ");
+
+    lcd.setCursor(0, 2);
+    lcd.print("Servo: 0 deg     ");
+
+    lcd.setCursor(0, 3);
+    lcd.print("LED: OFF         ");
+  }
+}

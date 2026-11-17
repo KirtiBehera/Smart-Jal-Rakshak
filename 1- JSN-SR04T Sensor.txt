@@ -1,0 +1,84 @@
+
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+#define TRIG_PIN D0
+#define ECHO_PIN D1
+#define SDA_PIN  D4
+#define SCL_PIN  D5
+
+LiquidCrystal_I2C lcd(0x27, 16, 4);
+
+unsigned long duration;
+float distanceCm;
+
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+  digitalWrite(TRIG_PIN, LOW);
+
+  Wire.begin(SDA_PIN, SCL_PIN);
+
+  lcd.init();
+  lcd.backlight();
+  lcd.clear();
+
+  lcd.setCursor(0, 0);
+  lcd.print("KVYA Distance");
+  delay(1000);
+  lcd.clear();
+}
+
+void loop() {
+  // Trigger the sensor
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(3);
+
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+
+  // Measure ECHO HIGH time
+  duration = pulseIn(ECHO_PIN, HIGH, 40000UL);
+
+  lcd.setCursor(0, 0);
+  lcd.print("JSN-SR04T       ");
+
+  if (duration == 0) {
+    Serial.println("No echo / timeout");
+
+    lcd.setCursor(0, 1);
+    lcd.print("No echo         ");
+    lcd.setCursor(0, 2);
+    lcd.print("Check wiring    ");
+    lcd.setCursor(0, 3);
+    lcd.print("                ");
+  } else {
+    // Standard ultrasonic distance formula
+    distanceCm = duration / 58.0f;
+
+    Serial.print("Echo duration: ");
+    Serial.print(duration);
+    Serial.print(" us | Distance: ");
+    Serial.print(distanceCm, 1);
+    Serial.println(" cm");
+
+    lcd.setCursor(0, 1);
+    lcd.print("Distance:       ");
+    lcd.setCursor(0, 2);
+    lcd.print(distanceCm, 1);
+    lcd.print(" cm            ");
+
+    lcd.setCursor(0, 3);
+    if (distanceCm < 25.0f) {
+      lcd.print("Too close       ");
+    } else {
+      lcd.print("Echo received   ");
+    }
+  }
+
+  // JSN-SR04T needs time between measurements
+  delay(100);
+}
